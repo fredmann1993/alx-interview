@@ -1,45 +1,53 @@
 #!/usr/bin/python3
-"""Script to get stats from a request"""
 
-import sys
+''' 
+log parser
+'''
 
-codes = {}
-status_codes = ['200', '301', '400', '401', '403', '404', '405', '500']
-count = 0
-size = 0
+from collections import defaultdict
 
-try:
-    for ln in sys.stdin:
-        if count == 10:
-            print("File size: {}".format(size))
-            for key in sorted(codes):
-                print("{}: {}".format(key, codes[key]))
-            count = 1
-        else:
-            count += 1
+def print_statistics(file_sizes, status_codes):
+    total_size = sum(file_sizes)
+    print(f"Total file size: {total_size}")
 
-        ln = ln.split()
+    sorted_status_codes = sorted(status_codes.keys())
+    for code in sorted_status_codes:
+        print(f"{code}: {status_codes[code]}")
 
-        try:
-            size = size + int(ln[-1])
-        except (IndexError, ValueError):
-            pass
+def main():
+    file_sizes = []
+    status_codes = defaultdict(int)
+    line_count = 0
 
-        try:
-            if ln[-2] in status_codes:
-                if codes.get(ln[-2], -1) == -1:
-                    codes[ln[-2]] = 1
-                else:
-                    codes[ln[-2]] += 1
-        except IndexError:
-            pass
+    try:
+        while True:
+            try:
+                line = input().strip()
+            except EOFError:
+                break
 
-    print("File size: {}".format(size))
-    for key in sorted(codes):
-        print("{}: {}".format(key, codes[key]))
+            parts = line.split()
+            if len(parts) != 10:
+                continue
 
-except KeyboardInterrupt:
-    print("File size: {}".format(size))
-    for key in sorted(codes):
-        print("{}: {}".format(key, codes[key]))
-    raise
+            ip, _, _, method, path, _, status_code, size, *_ = parts
+            if method != "GET" or not path.startswith("/projects/") or not status_code.isdigit():
+                continue
+
+            file_sizes.append(int(size))
+            status_codes[int(status_code)] += 1
+
+            line_count += 1
+            if line_count % 10 == 0:
+                print_statistics(file_sizes, status_codes)
+                print()
+
+    except KeyboardInterrupt:
+        pass
+
+    if line_count > 0:
+        print_statistics(file_sizes, status_codes)
+
+if __name__ == "__main__":
+    main()
+
